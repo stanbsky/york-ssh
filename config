@@ -1,0 +1,9 @@
+user=""
+uoy_pass=""
+server="teaching1"
+#
+# Change options below if you know what you're doing
+#
+ssh_args="-oPubkeyAuthentication=no"
+persistent_args="-oServerAliveInterval=30 -fN -X"
+host="ssh.york.ac.uk"

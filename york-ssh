@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -e
+
+dir="$(dirname "$0")"
+duo="$dir/duo-cli"
+venv="$duo/venv/bin"
+
+#TODO: check python version
+# Initialise duo-cli
+if [ ! -f "$venv/python" ]; then
+    echo "Setting up duo-cli venv..."
+    python3 -m venv "$duo/venv"
+    echo "Installing duo-cli requirements..."
+    eval "$venv/pip install -r $duo/requirements.txt"
+    echo "Done."
+fi
+
+#TODO: check for expect command, https://wiki.bash-hackers.org/scripting/style
+
+echo "Reading config..." >&2
+source "$dir/config"
+
+if [[ -z $uoy_pass ]]; then
+    if [[ -z "$UOY_PASS" ]]; then
+        # TODO: what is going on... successful login but this fires
+        echo "Password not set in either environment variable or config!"
+        echo "Either run 'source set_password.sh' or enter it inside config"
+    else
+        uoy_pass="env"
+    fi
+fi
+persistent_ssh="ssh $ssh_args $persistent_args $user@$host"
+
+# Is the persistent ssh connection present?
+if [[ ! "$(pgrep -f "$persistent_ssh")" ]]; then
+    echo "No persistent ssh connection found..."
+    # Check if duo-cli has been activated
+    if [ ! -f "$dir/duotoken.hotp" ]; then
+        echo "Duo has not been set up. Please follow the instruction in the README."
+        read -p "Enter activation url when ready: " duo_url
+        eval "$venv/python $duo/duo_activate.py $duo_url > $dir/duotoken.hotp"
+    fi
+    echo "Generating a DUO token..."
+    duo_otp="$("$venv/python" "$duo/duo_gen.py" | tail -n 1 | cut -f 2 -d ' ')"
+    echo "Got token: $duo_otp"
+    expect "$dir/login.expect" "$ssh_args $persistent_args" "$host" "$user" \
+        "$uoy_pass" "$server" "$duo_otp"
+fi
+
+echo "Logging in..."
+expect "$dir/login.expect" "$ssh_args" "$host" "$user" \
+    "$uoy_pass" "$server"

@@ -1,0 +1,21 @@
+#!/usr/bin/expect
+#set timeout 300
+
+lassign $argv args host user pass server duo_otp
+#TODO: make spawn ssh not echo to tty
+spawn ssh {*}"$args" "$user@$host"
+sleep 2
+if { $duo_otp eq "" } {
+    expect "*Enter York host or service name:*"
+    send "$server\r"
+    expect "*$user@$server:*"
+    interact
+} else {
+    if { $pass eq "env" } { set pass [ set ::env(UOY_PASS) ] }
+    expect "*password:*"
+    send "$pass\r"
+    expect "*Passcode or option*:*"
+    send "$duo_otp\r"
+    expect eof
+    exit
+}
